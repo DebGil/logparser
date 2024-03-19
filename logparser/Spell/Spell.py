@@ -204,6 +204,12 @@ class LogParser:
     def outputResult(self, logClustL):
         templates = [0] * self.df_log.shape[0]
         ids = [0] * self.df_log.shape[0]
+        services = self.df_log["Context"].apply(lambda x: x.split(',')[0]).apply(lambda x: x.split("[SW_CTX:[", 1)[-1])
+        traceIds = self.df_log["Context"].apply(lambda x: x.split(',')[2])
+        spanIds = self.df_log["Context"].apply(lambda x: x.split(',')[3])
+        spanStep = self.df_log["Context"].apply(lambda x: x.split(',')[4]).apply(lambda x: x.replace("]]", ""))
+        combined = spanIds + '.' + spanStep
+
         df_event = []
 
         for logclust in logClustL:
@@ -220,15 +226,45 @@ class LogParser:
 
         self.df_log["EventId"] = ids
         self.df_log["EventTemplate"] = templates
+        self.df_log["Service"] = services
+        self.df_log["TraceId"] = traceIds
+        # distinct_trace_ids = self.df_log["TraceId"].nunique()
+        # print("Number of distinct TraceIds:", distinct_trace_ids)
+        self.df_log["SpanId"] = combined
+        # distinct_span_ids = self.df_log["SpanId"].nunique()
+        # print("Number of distinct SpanId:", distinct_span_ids)
+        # distinct_combinations = self.df_log.drop_duplicates(subset=["TraceId", "SpanId"]).shape[0]
+        # print("Number of distinct combinations of TraceId and SpanID:", distinct_combinations)
+        #self.df_log.drop(columns=['Context'], inplace=True)
+        self.df_log['DateTime'] = pd.to_datetime(self.df_log['Date'] + ' ' + self.df_log['Time'])
+
         if self.keep_para:
             self.df_log["ParameterList"] = self.df_log.apply(
                 self.get_parameter_list, axis=1
             )
+
+        df_log_sorted = self.df_log.sort_values(by="DateTime")
+
+        traceid_order = {traceid: i for i, traceid in enumerate(df_log_sorted['TraceId'].unique())}
+
+        df_log_sorted['traceid_order'] = df_log_sorted['TraceId'].map(traceid_order)
+
+        new_df_log_sorted = df_log_sorted.sort_values(by='traceid_order')
+
+        new_df_log_sorted.drop(columns=['Date', 'Time', 'traceid_order'], inplace=True)
+
+        new_df_log_sorted["LineId"] = new_df_log_sorted.reset_index().index + 1
+
+        new_df_log_sorted = new_df_log_sorted[['LineId', 'DateTime', 'TraceId', 'SpanId', 'Service', 'Content', 'EventId', 'EventTemplate', 'ParameterList' , 'Context', 'Thread', 'Level', 'Component']]
+
         self.df_log.to_csv(
             os.path.join(self.savePath, self.logname + "_structured.csv"), index=False
         )
         df_event.to_csv(
             os.path.join(self.savePath, self.logname + "_templates.csv"), index=False
+        )
+        new_df_log_sorted.to_csv(
+            os.path.join(self.savePath, self.logname + "_structured_sorted.csv"), index=False
         )
 
     def printTree(self, node, dep):
@@ -264,11 +300,11 @@ class LogParser:
                     re.split(r"[\s=:,]", self.preprocess(line["Content"])),
                 )
             )
+
             constLogMessL = [w for w in logmessageL if w != "<*>"]
 
             # Find an existing matched log cluster
             matchCluster = self.PrefixTreeMatch(rootNode, constLogMessL, 0)
-
             if matchCluster is None:
                 matchCluster = self.SimpleLoopMatch(logCluL, constLogMessL)
 
@@ -300,6 +336,8 @@ class LogParser:
                     )
                 )
 
+
+
         if not os.path.exists(self.savePath):
             os.makedirs(self.savePath)
 
@@ -315,6 +353,10 @@ class LogParser:
     def preprocess(self, line):
         for currentRex in self.rex:
             line = re.sub(currentRex, "<*>", line)
+        return line
+
+    def preprocess_context(self, line):
+#print(line)
         return line
 
     def log_to_dataframe(self, log_file, regex, headers, logformat):
@@ -340,6 +382,7 @@ class LogParser:
         """Function to generate regular expression to split log messages"""
         headers = []
         splitters = re.split(r"(<[^<>]+>)", logformat)
+
         regex = ""
         for k in range(len(splitters)):
             if k % 2 == 0:

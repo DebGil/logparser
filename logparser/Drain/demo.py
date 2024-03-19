@@ -4,10 +4,11 @@ import sys
 sys.path.append('../../')
 from logparser.Drain import LogParser
 
-input_dir  = '../../data/loghub_2k/HDFS/' # The input directory of log file
+input_dir  = '../../data/TrainTicket/' # The input directory of log file
 output_dir = 'demo_result/'  # The output directory of parsing results
-log_file   = 'HDFS_2k.log'  # The input log file name
-log_format = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # HDFS log format
+log_file   = 'F0101raw_log2021-08-14_10-22-51.log'  # The input log file name
+#log_format = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # HDFS log format
+log_format = '<Date> <Time> <Context> <Thread> <Level> <Component> -<Content>'  # Train Ticket log format
 # Regular expression list for optional preprocessing (default: [])
 regex      = [
     r'blk_(|-)[0-9]+' , # block id
