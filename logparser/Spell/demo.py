@@ -6,7 +6,7 @@ from logparser.Spell import LogParser
 
 input_dir  = '../../data/TrainTicket/' # The input directory of log file
 output_dir = 'demo_result/'  # The output directory of parsing results
-log_file   = '2301-0306 logs.log'  # The input log file name
+log_file   = 'normal0726data-raw_log_small.log'  # The input log file name
 log_format = '<Date> <Time> <Context> <Thread> <Level> <Component> -<Content>'  # Train Ticket log format
 tau        = 0.7  # Message type threshold (default: 0.5)
 regex      = [
